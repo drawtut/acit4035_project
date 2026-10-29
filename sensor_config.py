@@ -48,12 +48,12 @@ REG_AXIS6 = 0x24
 REG_UNLOCK = 0x69
 
 # Installation direction
-HORIZONTAL = 0
-VERTICAL = 1
+HORIZONTAL = 1
+VERTICAL = 0
 
 # Sensor fusion algorithm
-NINE_AXIS = 0
-SIX_AXIS = 1
+NINE_AXIS = 1
+SIX_AXIS = 0
 
 
 # ============================================================

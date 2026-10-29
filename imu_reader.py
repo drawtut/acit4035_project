@@ -16,14 +16,24 @@ import numpy as np
 import serial
 
 # ------------ EDIT THESE ------------
-LEFT_PORT = "COM5"
-RIGHT_PORT = "COM4"
-BAUDRATE = 9600
+LEFT_PORT = "COM8"
+RIGHT_PORT = "COM6"
+BAUDRATE = 115200     # must match the sensor (set in WitMotion software)
 MODBUS_ADDRESS = 0x50
-POLL_HZ = 10.0  # practical starting point for 9600 baud
+POLL_HZ = 50.0       # 50 Hz needs 115200 baud; use 10 Hz at 9600
 # ------------------------------------
 
 G = 9.80665
+
+# time.monotonic() on Windows only updates every ~15.6 ms, too coarse at 50 Hz.
+# now() keeps the time.monotonic() time base (so other scripts still compare
+# correctly) but with perf_counter's sub-millisecond resolution.
+_CLOCK_OFFSET = time.monotonic() - time.perf_counter()
+
+
+def now() -> float:
+    """Same time base as time.monotonic(), sub-millisecond resolution."""
+    return time.perf_counter() + _CLOCK_OFFSET
 
 
 def crc16(data: bytes) -> int:
@@ -37,7 +47,7 @@ def crc16(data: bytes) -> int:
 
 @dataclass(frozen=True)
 class IMUSample:
-    timestamp: float  # monotonic clock, seconds
+    timestamp: float  # seconds, time.monotonic() time base (see now())
     accel: np.ndarray  # m/s^2, sensor frame, x/y/z
     gyro: np.ndarray   # deg/s, sensor frame, x/y/z
     magnet: np.ndarray # raw counts, sensor frame
@@ -84,7 +94,7 @@ class IMUReader:
     def start(self):
         if self._thread and self._thread.is_alive():
             raise RuntimeError('Already started')
-        self._serial = serial.Serial(self.port, self.baudrate, timeout=0.25,
+        self._serial = serial.Serial(self.port, self.baudrate, timeout=0.1,
                                      bytesize=8, parity='N', stopbits=1)
         self._stop.clear()
         self._thread = threading.Thread(target=self._loop, daemon=True)
@@ -131,27 +141,45 @@ class IMUReader:
             raise ValueError('CRC mismatch')
         vals = np.array(struct.unpack('>' + 'h' * count, rest[:-2]), dtype=float)
         return IMUSample(
-            timestamp=time.monotonic(),
+            timestamp=now(),
             accel=vals[0:3] * (16 * G / 32768),
             gyro=vals[3:6] * (2000 / 32768),
             magnet=vals[6:9],
             euler=vals[9:12] * (180 / 32768),
         )
 
+    def _on_sample(self, sample):
+        """Hook for subclasses (fpa_reader uses it to keep every sample)."""
+        pass
+
     def _loop(self):
+        # Deadline-based timing: each poll is scheduled from the previous
+        # deadline, so the average rate holds at poll_hz even when a single
+        # sleep on Windows wakes up a few ms late.
         period = 1.0 / self.poll_hz
+        next_t = time.perf_counter()
         while not self._stop.is_set():
-            tic = time.monotonic()
             try:
                 sample = self._read_once()
                 with self._lock:
                     self._sample = sample
+                self._on_sample(sample)
                 self.ok_count += 1
                 self.last_error = None
             except (ValueError, TimeoutError, serial.SerialException, OSError) as exc:
                 self.error_count += 1
                 self.last_error = str(exc)
-            self._stop.wait(max(0.0, period - (time.monotonic() - tic)))
+            except Exception as exc:
+                self.error_count += 1
+                self.last_error = repr(exc)
+            next_t += period
+            delay = next_t - time.perf_counter()
+            if delay > 0:
+                time.sleep(delay)
+            elif delay < -period:
+                # Fell more than one period behind (e.g. a timeout): resync
+                # instead of firing a burst of back-to-back polls.
+                next_t = time.perf_counter()
 
 
 if __name__ == '__main__':
@@ -161,7 +189,7 @@ if __name__ == '__main__':
     left_t, left_euler, left_gyro = [], [], []
     right_t, right_euler, right_gyro = [], [], []
 
-    start_time = time.monotonic()
+    start_time = now()
 
     with IMUReader(LEFT_PORT) as left, IMUReader(RIGHT_PORT) as right:
         try:
