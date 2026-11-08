@@ -1,11 +1,14 @@
+# Python
 __pycache__/
 *.pyc
 .venv/
 venv/
 
+# IMU recordings and generated data
 recordings/
 *.csv
 
+# Environment and system files
 .env
 .DS_Store
 Thumbs.db

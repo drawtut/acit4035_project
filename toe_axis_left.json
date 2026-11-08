@@ -1,0 +1,54 @@
+{
+  "schema": "ACIT4035_TOE_AXIS_V1",
+  "side": "left",
+  "sensor_forward_unit": [
+    0.18698809795381097,
+    -0.5083561132461842,
+    0.8406006860268725
+  ],
+  "sensor_up_reference": [
+    0.5105648051982501,
+    -0.6807530735976668,
+    -0.5252607280962499
+  ],
+  "lift_details": [
+    {
+      "peak_time_s": 1.6799141999799758,
+      "tilt_deg": 32.48285294006979,
+      "stable_samples": 48,
+      "forward_unit": [
+        0.17415597894236645,
+        -0.5163470119230217,
+        0.8384840238649707
+      ]
+    },
+    {
+      "peak_time_s": 6.249950799858198,
+      "tilt_deg": 33.38949402831119,
+      "stable_samples": 18,
+      "forward_unit": [
+        0.21700003176655516,
+        -0.4890928441825086,
+        0.8448071827244241
+      ]
+    },
+    {
+      "peak_time_s": 10.834916749969125,
+      "tilt_deg": 32.807646279764384,
+      "stable_samples": 48,
+      "forward_unit": [
+        0.16962610738126385,
+        -0.5191332105754727,
+        0.8376918845090251
+      ]
+    }
+  ],
+  "minimum_direction_cosine": 0.9993552578396667,
+  "source_sha256": "3ec7fabdda3f0ae8be7363d257631177daea9744271632ad5ae0a2fd155ed5c4",
+  "assumptions": [
+    "Heel remains planted during all toe-UP lifts",
+    "Sensor remains fixed to shoe between toe-axis and walking calibration",
+    "Accelerometer magnitude approximates gravity in the raised poses"
+  ],
+  "warning": "Experimental toe-lift anatomical-axis estimate; verify with shoe axis markings or reference video."
+}

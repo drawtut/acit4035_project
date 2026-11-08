@@ -1,0 +1,36 @@
+{
+  "schema": "ACIT4035_FPA_CALIBRATION_V2",
+  "side": "left",
+  "sensor_forward_unit": [
+    0.23857807636543,
+    -0.6050165194977345,
+    0.7596285359388617
+  ],
+  "sensor_up_reference": [
+    0.3641734267435204,
+    -0.669394497199578,
+    -0.6475250747058418
+  ],
+  "foot_mediolateral_unit": [
+    0.9002545288592848,
+    0.4311218137067198,
+    0.06062808767044837
+  ],
+  "pca_mediolateral_raw": [
+    0.9002876282564609,
+    0.43103784992708594,
+    0.060733502604340704
+  ],
+  "pca_eigenvalue_ratio": 8.504850536291741,
+  "calibration_method": "toe_lift_3d_plus_gyro_pca",
+  "forward_axis_mount": null,
+  "toe_pca_agreement_deg": 0.015902152149228528,
+  "toe_walking_gravity_difference_deg": 10.964268171229218,
+  "toe_axis_source_sha256": "3ec7fabdda3f0ae8be7363d257631177daea9744271632ad5ae0a2fd155ed5c4",
+  "calibration_seconds": [
+    5.05053,
+    12.0553
+  ],
+  "warning": "Experimental functional alignment. Verify shoe axes and validate with reference video.",
+  "calibration_source_sha256": "b9e39feb8a05626bed084f7286a8e61b8f94ac19cca693693e221b530642bb4e"
+}

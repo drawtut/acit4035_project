@@ -1,487 +1,328 @@
+"""WT901C485-E Modbus RTU configuration with readback and recovery.
 
-"""Configure WT901C485-E installation direction and sensor fusion mode.
+Usage:
+  py sensor_config.py read --sensor left
+  py sensor_config.py raw-max --sensor left --yes
+  py sensor_config.py set-baud --sensor left --target-baud 230400 --yes
+  py sensor_config.py set-baud --sensor left --target-baud 921600 --yes
+  py sensor_config.py set-delay --sensor left --delay-us 2000 --current-baud 230400 --yes
+  py sensor_config.py set-delay --sensor left --delay-us 3000 --current-baud 230400 --yes
+  py sensor_config.py vertical --sensor left --yes
+  py sensor_config.py apply-profile --sensor left --yes
+  py sensor_config.py check-profile --sensor left
 
-Requires:
-    pip install pyserial
-
-Uses Modbus RTU and the existing imu_reader.py configuration.
-
-Registers:
-    0x23 ORIENT: 0 = horizontal, 1 = vertical
-    0x24 AXIS6: 0 = 9-axis, 1 = 6-axis (no magnetometer fusion)
-
-Close any applications using the COM ports before running.
-
-Examples:
-    python sensor_config.py read
-    python sensor_config.py six-axis --yes
-    python sensor_config.py nine-axis --yes
-    python sensor_config.py vertical --yes
-    python sensor_config.py horizontal --yes
-    python sensor_config.py vertical --sensor left --yes
+IMPORTANT: raw-max selects the device's WIDEST documented bandwidth (256 Hz),
+NOT a proven bypass of its firmware filters. Register outputs are original
+sensor register counts, NOT guaranteed raw ADC samples. Auto-output remains
+disabled for reliable request/response Modbus polling. NO hardware writes are
+performed unless --yes is given. Close other programs using the COM port.
 """
-
 from __future__ import annotations
-
 import argparse
 import struct
 import time
 
 import serial
-
-from imu_reader import (
-    LEFT_PORT,
-    RIGHT_PORT,
-    BAUDRATE,
-    MODBUS_ADDRESS,
-    crc16,
-)
-
-
-# ============================================================
-# Register addresses
-# ============================================================
+from imu_reader import LEFT_PORT, RIGHT_PORT, MODBUS_ADDRESS, crc16
 
 REG_SAVE = 0x00
+REG_RRATE = 0x03
+REG_BAUD = 0x04
+REG_BANDWIDTH = 0x1F
+REG_GYRO_RANGE = 0x20
+REG_ACC_RANGE = 0x21
 REG_ORIENT = 0x23
 REG_AXIS6 = 0x24
 REG_UNLOCK = 0x69
+REG_MODDELAY = 0x74  # RS485 Modbus reply delay in microseconds
 
-# Installation direction
-HORIZONTAL = 0
-VERTICAL = 1
+# ACIT4035 validated single-IMU acquisition profile, 2026-11-04.
+# Reapply with: py sensor_config.py apply-profile --sensor left --yes
+# NOTE: 200 Hz HOST POLLING is configured in imu_acquisition.py, NOT here.
+# RRATE=13 disables unsolicited streaming while retaining on-demand Modbus reads.
+# Values of sensor counts remain firmware-processed; 256 Hz is the widest
+# documented filter bandwidth, not a bypass of internal filtering.
+PROFILE_BAUD = 230400
+PROFILE_REGISTERS = {
+    REG_RRATE: 13,       # Automatic output disabled (Modbus polling mode)
+    REG_BANDWIDTH: 0,    # Widest documented internal bandwidth, 256 Hz
+    REG_GYRO_RANGE: 3,   # +/- 2000 deg/s
+    REG_ACC_RANGE: 3,    # +/- 16 g
+    REG_ORIENT: 1,       # Vertical sensor installation
+    REG_AXIS6: 0,        # Keep existing 9-axis fusion, pending FPA algorithm
+    REG_MODDELAY: 1000,  # 1 ms; verified working with USB-RS485 adapter
+}
 
-# Sensor fusion algorithm
-NINE_AXIS = 0
-SIX_AXIS = 1
+BAUD_CODES = {4800: 1, 9600: 2, 19200: 3, 38400: 4, 57600: 5,
+              115200: 6, 230400: 7, 460800: 8, 921600: 9}
+PROBE_BAUDS = (230400, 115200, 460800, 921600, 9600, 57600, 38400, 19200, 4800)
+REGISTER_NAMES = {REG_RRATE: 'Auto output (RRATE)', REG_BAUD: 'Baud code',
+                  REG_BANDWIDTH: 'Internal bandwidth', REG_GYRO_RANGE: 'Gyro range',
+                  REG_ACC_RANGE: 'Accel range', REG_ORIENT: 'Installation',
+                  REG_AXIS6: 'Fusion mode', REG_MODDELAY: 'Modbus reply delay'}
+BANDWIDTHS = {0: '256 Hz (widest available, NOT filter bypass)', 1: '184 Hz',
+              2: '94 Hz', 3: '44 Hz', 4: '21 Hz', 5: '10 Hz', 6: '5 Hz'}
+RRATES = {6:'10 Hz auto',7:'20 Hz auto',8:'50 Hz auto',9:'100 Hz auto',
+          10:'125/200 Hz (firmware dependent)',11:'200 Hz auto (SDK)',
+          12:'single output',13:'automatic output disabled'}
 
 
-# ============================================================
-# Modbus communication
-# ============================================================
-
-def transact(
-    ser: serial.Serial,
-    addr: int,
-    function: int,
-    register: int,
-    value: int,
-) -> bytes:
-
-    request = struct.pack(
-        ">BBHH",
-        addr,
-        function,
-        register,
-        value,
-    )
-
-    request += struct.pack("<H", crc16(request))
-
+def exchange(ser: serial.Serial, addr: int, fn: int, reg: int, val: int,
+             *, allow_missing_echo=False) -> bytes | None:
+    request = struct.pack('>BBHH', addr, fn, reg, val)
+    request += struct.pack('<H', crc16(request))
     ser.reset_input_buffer()
     ser.write(request)
     ser.flush()
-
     header = ser.read(3)
-
     if len(header) != 3:
-        raise TimeoutError(
-            "No Modbus reply "
-            "(check power, COM port, baud, address)"
-        )
-
+        if allow_missing_echo:
+            return None  # baud changes may take effect before a write reply
+        raise TimeoutError(f'No Modbus reply at {ser.baudrate} baud')
     if header[0] != addr:
-        raise ValueError("Unexpected slave address")
-
-    if header[1] == (function | 0x80):
+        raise ValueError(f'Unexpected device address {header[0]:02x}')
+    if header[1] == (fn | 0x80):
         rest = ser.read(2)
-
-        raise ValueError(
-            f"Modbus exception {header[2]} "
-            f"(raw={(header + rest).hex(' ')})"
-        )
-
-    if header[1] != function:
-        raise ValueError("Unexpected Modbus function")
-
-    if function == 3:
-
-        byte_count = header[2]
-
-        if byte_count != value * 2:
-            raise ValueError(
-                "Unexpected register byte count"
-            )
-
-        response = header + ser.read(byte_count + 2)
-        expected_length = 3 + byte_count + 2
-
-    elif function == 6:
-
-        response = header + ser.read(5)
-        expected_length = 8
-
+        raise ValueError(f'Modbus exception code={header[2]} packet={(header+rest).hex()}')
+    if header[1] != fn:
+        raise ValueError(f'Unexpected function {header[1]}')
+    if fn == 3:
+        if header[2] != 2*val:
+            raise ValueError('Unexpected read length')
+        tail = ser.read(2*val + 2)
+    elif fn == 6:
+        tail = ser.read(5)
     else:
-        raise ValueError("Unsupported function")
-
-    if len(response) != expected_length:
-        raise TimeoutError("Incomplete Modbus response")
-
-    received_crc = struct.unpack(
-        "<H", response[-2:]
-    )[0]
-
-    if received_crc != crc16(response[:-2]):
-        raise ValueError("Modbus CRC mismatch")
-
-    if function == 6 and response[:6] != request[:6]:
-        raise ValueError(
-            "Write echo does not match request"
-        )
-
+        raise ValueError('Unsupported Modbus function')
+    response = header + tail
+    if len(tail) != (2*val+2 if fn == 3 else 5):
+        if allow_missing_echo:
+            return None
+        raise TimeoutError('Truncated Modbus reply')
+    if struct.unpack('<H', response[-2:])[0] != crc16(response[:-2]):
+        raise ValueError('Modbus reply CRC mismatch')
+    if fn == 6 and response[:6] != request[:6]:
+        raise ValueError('Write echo mismatch')
     return response
 
 
-# ============================================================
-# Register access
-# ============================================================
-
-def read_register(ser, addr, register):
-
-    response = transact(
-        ser,
-        addr,
-        3,
-        register,
-        1,
-    )
-
-    return struct.unpack(
-        ">H",
-        response[3:5],
-    )[0]
+def read_reg(ser, addr, register):
+    r = exchange(ser, addr, 3, register, 1)
+    return struct.unpack('>H', r[3:5])[0]
 
 
-def write_register(ser, addr, register, value):
-
-    transact(
-        ser,
-        addr,
-        6,
-        register,
-        value,
-    )
+def write_reg(ser, addr, register, value, *, allow_missing_echo=False):
+    return exchange(ser, addr, 6, register, value,
+                    allow_missing_echo=allow_missing_echo)
 
 
-def read_direction(ser, addr):
-    return read_register(ser, addr, REG_ORIENT)
+def open_serial(port, baud):
+    return serial.Serial(port, baudrate=baud, bytesize=8, parity='N', stopbits=1,
+                         timeout=0.30, write_timeout=0.5)
 
 
-def read_algorithm(ser, addr):
-    return read_register(ser, addr, REG_AXIS6)
+def probe(port, addr, known_baud=None):
+    """Probe measurement register first, like imu_acquisition.py.
+
+    Some units intermittently reject configuration-register reads during startup.
+    Retry a CRC-validated sensor measurement before accessing configuration.
+    No register writes are performed.
+    """
+    rates = [known_baud] if known_baud else list(PROBE_BAUDS)
+    last_errors = []
+    for baud in rates:
+        try:
+            with open_serial(port, baud) as ser:
+                for attempt in range(3):
+                    try:
+                        exchange(ser, addr, 3, 0x34, 1)
+                        return baud
+                    except (serial.SerialException, OSError, ValueError, TimeoutError) as exc:
+                        last_errors.append(f'{baud:,} baud attempt {attempt+1}: {type(exc).__name__}: {exc}')
+                        time.sleep(0.06)
+        except (serial.SerialException, OSError, ValueError, TimeoutError) as exc:
+            last_errors.append(f'{baud:,} baud opening port: {type(exc).__name__}: {exc}')
+    last = '; '.join(last_errors[-3:])
+    raise RuntimeError(f'No valid Modbus reply on {port}. Last errors: {last}')
 
 
-# ============================================================
-# Formatting
-# ============================================================
-
-def direction_name(value):
-
-    return {
-        HORIZONTAL: "HORIZONTAL",
-        VERTICAL: "VERTICAL",
-    }.get(value, f"UNKNOWN ({value})")
-
-
-def algorithm_name(value):
-
-    return {
-        NINE_AXIS: "9-AXIS (magnetometer fusion enabled)",
-        SIX_AXIS: "6-AXIS (magnetometer fusion disabled)",
-    }.get(value, f"UNKNOWN ({value})")
+def read_reg_with_retry(ser, addr, reg, attempts=3):
+    last = None
+    for _ in range(attempts):
+        try:
+            return read_reg(ser, addr, reg)
+        except (serial.SerialException, OSError, ValueError, TimeoutError) as exc:
+            last = exc
+            time.sleep(0.05)
+    raise RuntimeError(f'Register 0x{reg:02X} read failed after {attempts} tries: {type(last).__name__}: {last}')
 
 
-def print_configuration(port, direction, algorithm):
-
-    print(f"{port}: installation = {direction_name(direction)}")
-    print(f"{port}: algorithm    = {algorithm_name(algorithm)}")
-
-
-# ============================================================
-# Configuration
-# ============================================================
-
-def run_port(port, action, baud, addr):
-
-    desired_register = None
-    desired_value = None
-
-    if action == "vertical":
-        desired_register = REG_ORIENT
-        desired_value = VERTICAL
-
-    elif action == "horizontal":
-        desired_register = REG_ORIENT
-        desired_value = HORIZONTAL
-
-    elif action == "six-axis":
-        desired_register = REG_AXIS6
-        desired_value = SIX_AXIS
-
-    elif action == "nine-axis":
-        desired_register = REG_AXIS6
-        desired_value = NINE_AXIS
-
-    with serial.Serial(
-        port,
-        baudrate=baud,
-        bytesize=8,
-        parity="N",
-        stopbits=1,
-        timeout=1.0,
-        write_timeout=1.0,
-    ) as ser:
-
-        before_direction = read_direction(ser, addr)
-        before_algorithm = read_algorithm(ser, addr)
-
-        print_configuration(
-            port,
-            before_direction,
-            before_algorithm,
-        )
-
-        if action == "read":
-            return True
-
-        current_value = read_register(
-            ser,
-            addr,
-            desired_register,
-        )
-
-        if current_value == desired_value:
-            print(
-                f"{port}: already configured; "
-                "no write needed"
-            )
-            return True
-
-        print(f"{port}: changing configuration...")
-
-        # Unlock configuration registers
-        write_register(
-            ser,
-            addr,
-            REG_UNLOCK,
-            0xB588,
-        )
-
-        time.sleep(0.10)
-
-        # Apply requested configuration
-        write_register(
-            ser,
-            addr,
-            desired_register,
-            desired_value,
-        )
-
-        time.sleep(0.10)
-
-        # Verify before saving
-        observed = read_register(
-            ser,
-            addr,
-            desired_register,
-        )
-
-        if observed != desired_value:
-            raise RuntimeError(
-                "Pre-save verification failed: "
-                f"expected {desired_value}, got {observed}"
-            )
-
-        # Save to sensor
-        write_register(
-            ser,
-            addr,
-            REG_SAVE,
-            0x0000,
-        )
-
-        time.sleep(0.25)
-
-        # Verify after saving
-        saved_value = read_register(
-            ser,
-            addr,
-            desired_register,
-        )
-
-        if saved_value != desired_value:
-            raise RuntimeError(
-                "Post-save verification failed: "
-                f"expected {desired_value}, got {saved_value}"
-            )
-
-        print(f"{port}: save verification passed")
-
-    # ========================================================
-    # Reopen COM port and verify
-    # ========================================================
-
-    time.sleep(0.25)
-
-    with serial.Serial(
-        port,
-        baudrate=baud,
-        bytesize=8,
-        parity="N",
-        stopbits=1,
-        timeout=1.0,
-        write_timeout=1.0,
-    ) as ser:
-
-        final_direction = read_direction(ser, addr)
-        final_algorithm = read_algorithm(ser, addr)
-
-    final_value = (
-        final_direction
-        if desired_register == REG_ORIENT
-        else final_algorithm
-    )
-
-    if final_value != desired_value:
-        raise RuntimeError(
-            "Reopen verification failed: "
-            f"expected {desired_value}, got {final_value}"
-        )
-
-    print(f"{port}: SUCCESS")
-
-    print_configuration(
-        port,
-        final_direction,
-        final_algorithm,
-    )
-
-    return True
+def print_state(port, addr, baud):
+    with open_serial(port, baud) as ser:
+        readings = {reg:read_reg_with_retry(ser, addr, reg) for reg in REGISTER_NAMES}
+    print(f'\n{port} at {baud:,} baud:')
+    for reg, label in REGISTER_NAMES.items():
+        value = readings[reg]
+        detail = ''
+        if reg == REG_BANDWIDTH: detail = BANDWIDTHS.get(value, 'unknown')
+        if reg == REG_RRATE: detail = RRATES.get(value, 'unknown')
+        if reg == REG_MODDELAY: detail = f'{value} us ({value/1000:g} ms)'
+        if reg == REG_BAUD: detail = str(next((b for b,c in BAUD_CODES.items() if c==value), 'unknown')) + ' baud'
+        if reg == REG_ORIENT: detail = {0:'horizontal',1:'vertical'}.get(value,'unknown')
+        if reg == REG_AXIS6: detail = {0:'9-axis',1:'6-axis'}.get(value,'unknown')
+        if reg == REG_GYRO_RANGE: detail = {0:'250',1:'500',2:'1000',3:'2000'}.get(value,'unknown')+' deg/s'
+        if reg == REG_ACC_RANGE: detail = {0:'2',1:'4',2:'8',3:'16'}.get(value,'unknown')+' g'
+        print(f'  0x{reg:02X} {label:25s}: 0x{value:04X}  {detail}')
+    return readings
 
 
-# ============================================================
-# Main
-# ============================================================
+def modify_regular(port, addr, baud, updates):
+    """Write non-baud registers, save, and independently read back after reopen."""
+    with open_serial(port, baud) as ser:
+        previous = {reg:read_reg_with_retry(ser,addr,reg) for reg in updates}
+        changed = {reg:value for reg,value in updates.items() if previous[reg]!=value}
+        if not changed:
+            print('  Already configured; no writes necessary')
+            return
+        write_reg(ser,addr,REG_UNLOCK,0xB588)
+        time.sleep(.10)
+        for reg,value in changed.items():
+            write_reg(ser,addr,reg,value)
+            time.sleep(.10)
+            verified=read_reg_with_retry(ser,addr,reg)
+            if verified!=value:
+                raise RuntimeError(f'Register 0x{reg:02X} expected {value}, got {verified}')
+        write_reg(ser,addr,REG_SAVE,0)
+        time.sleep(.25)
+    time.sleep(.15)
+    with open_serial(port, baud) as ser:
+        for reg,value in changed.items():
+            observed=read_reg_with_retry(ser,addr,reg)
+            if observed!=value:
+                raise RuntimeError(f'Post-reopen mismatch 0x{reg:02X}: {observed} != {value}')
+    print('  Saved, verified after reopening port. Power-cycle later to confirm persistence.')
+
+
+def change_baud(port,addr,old_baud,new_baud):
+    if new_baud == old_baud:
+        print(f'  Already communicating at {new_baud:,} baud')
+        return
+    print(f'  Switching {old_baud:,} -> {new_baud:,} baud')
+    with open_serial(port,old_baud) as ser:
+        write_reg(ser,addr,REG_UNLOCK,0xB588)
+        time.sleep(.10)
+        # Some firmware switches serial bit rate before returning the write echo.
+        try:
+            write_reg(ser,addr,REG_BAUD,BAUD_CODES[new_baud], allow_missing_echo=True)
+        except (TimeoutError, ValueError) as exc:
+            # Some firmware changes baud before completing the write echo;
+            # treat a garbled acknowledgement as inconclusive, not success.
+            # Reprobe and read back the register below before saving.
+            print(f'  Baud write acknowledgement inconclusive ({exc}); verifying by reprobe')
+    time.sleep(.30)
+    # The change may take effect immediately OR only after a save/reboot.
+    try:
+        live=probe(port,addr)
+    except RuntimeError as exc:
+        raise RuntimeError('Baud change sent, but sensor could not be found. '
+                           'Power-cycle, then run "read" to probe again.') from exc
+    print(f'  Now responding at {live:,} baud')
+    if live not in (new_baud,old_baud):
+        raise RuntimeError('Unexpected baud detected; stopping before save')
+    with open_serial(port,live) as ser:
+        value=read_reg_with_retry(ser,addr,REG_BAUD)
+        if value != BAUD_CODES[new_baud]:
+            raise RuntimeError(f'Baud register did not change (code={value}); stopping')
+        write_reg(ser,addr,REG_UNLOCK,0xB588)
+        time.sleep(.10)
+        write_reg(ser,addr,REG_SAVE,0)
+    time.sleep(.25)
+    final=probe(port,addr)
+    if final != new_baud:
+        print(f'  NOTE: communicating at {final:,}; power-cycle then probe again')
+    else:
+        print(f'  SUCCESS: {new_baud:,} baud verified, save requested')
+
 
 def main():
-
-    parser = argparse.ArgumentParser(
-        description=(
-            "WT901C485-E installation direction "
-            "and sensor fusion configuration"
-        )
-    )
-
-    parser.add_argument(
-        "action",
-        choices=[
-            "read",
-            "vertical",
-            "horizontal",
-            "six-axis",
-            "nine-axis",
-        ],
-        help="Read or change sensor configuration",
-    )
-
-    parser.add_argument(
-        "--sensor",
-        choices=[
-            "left",
-            "right",
-            "both",
-        ],
-        default="both",
-    )
-
-    parser.add_argument(
-        "--baud",
-        type=int,
-        default=BAUDRATE,
-    )
-
-    parser.add_argument(
-        "--address",
-        type=lambda s: int(s, 0),
-        default=MODBUS_ADDRESS,
-    )
-
-    parser.add_argument(
-        "--yes",
-        action="store_true",
-        help="Confirm changing device configuration",
-    )
-
-    args = parser.parse_args()
-
-    if args.sensor == "left":
-
-        ports = [
-            ("LEFT", LEFT_PORT),
-        ]
-
-    elif args.sensor == "right":
-
-        ports = [
-            ("RIGHT", RIGHT_PORT),
-        ]
-
-    else:
-
-        ports = [
-            ("LEFT", LEFT_PORT),
-            ("RIGHT", RIGHT_PORT),
-        ]
-
-    if args.action != "read" and not args.yes:
-
-        parser.error(
-            "Writing device settings requires --yes. "
-            "Read current values first."
-        )
-
-    failed = False
-
-    for label, port in ports:
-
-        print(f"\n{'=' * 50}")
-        print(f"{label} ({port})")
-        print(f"{'=' * 50}")
-
+    p=argparse.ArgumentParser(description='WT901C485-E register config and maximum-bandwidth setup')
+    p.add_argument('action',choices=['read','check-profile','apply-profile','raw-max','set-baud','set-bandwidth','set-delay','vertical','horizontal','six-axis','nine-axis'])
+    p.add_argument('--sensor',choices=['left','right','both'],default='left')
+    p.add_argument('--left',default=LEFT_PORT)
+    p.add_argument('--right',default=RIGHT_PORT)
+    p.add_argument('--address',type=lambda x:int(x,0),default=MODBUS_ADDRESS)
+    p.add_argument('--current-baud',type=int,choices=list(BAUD_CODES),help='Optional known current baud; otherwise auto-probe')
+    p.add_argument('--target-baud',type=int,choices=list(BAUD_CODES),help='New baud, only for set-baud')
+    p.add_argument('--bandwidth-code',type=int,choices=range(7),help='For set-bandwidth; 0=256 Hz, 4=21 Hz (previous setting)')
+    p.add_argument('--delay-us',type=int,help='Modbus response delay for set-delay (1000 to 10000 microseconds); default 3000')
+    p.add_argument('--yes',action='store_true',help='Required for configuration writes')
+    a=p.parse_args()
+    if a.action not in ('read', 'check-profile') and not a.yes:
+        p.error('Writes require --yes')
+    if a.action=='set-baud' and a.target_baud is None:
+        p.error('set-baud requires --target-baud')
+    if a.action=='set-bandwidth' and a.bandwidth_code is None:
+        p.error('set-bandwidth requires --bandwidth-code 0..6')
+    if a.action=='set-delay' and (a.delay_us is None or not 1000 <= a.delay_us <= 10000):
+        p.error('set-delay requires --delay-us 1000..10000 (test 2000, then 1000; restore 3000)')
+    if not 1<=a.address<=247:
+        p.error('Modbus address must be 1..247')
+    ports=[('left',a.left),('right',a.right)] if a.sensor=='both' else [(a.sensor,a.left if a.sensor=='left' else a.right)]
+    failed=False
+    for name,port in ports:
+        print(f'\n{name.upper()} ({port})')
         try:
+            current=probe(port,a.address,a.current_baud)
+            before=print_state(port,a.address,current)
+            if a.action=='read': continue
+            if a.action == 'check-profile':
+                mismatches = [(reg, before[reg], desired) for reg, desired in PROFILE_REGISTERS.items()
+                              if before[reg] != desired]
+                if current != PROFILE_BAUD:
+                    print(f'  MISMATCH: baud {current:,}, expected {PROFILE_BAUD:,}')
+                    failed = True
+                for reg, actual, desired in mismatches:
+                    print(f'  MISMATCH: 0x{reg:02X} {REGISTER_NAMES[reg]} actual={actual}, expected={desired}')
+                    failed = True
+                if current == PROFILE_BAUD and not mismatches:
+                    print('  ACIT4035 PROFILE MATCHES (no settings changed)')
+                continue
+            if a.action == 'apply-profile':
+                print('  Applying hard-coded ACIT4035 200-Hz acquisition SENSOR profile:')
+                print('  230400 baud, 256-Hz bandwidth, RRATE=13, 1-ms Modbus delay,')
+                print('  +/-16 g, +/-2000 deg/s, vertical installation, 9-axis fusion.')
+                modify_regular(port, a.address, current, PROFILE_REGISTERS)
+                if current != PROFILE_BAUD:
+                    change_baud(port, a.address, current, PROFILE_BAUD)
+                verify_baud = probe(port, a.address, PROFILE_BAUD)
+                actual = print_state(port, a.address, verify_baud)
+                mismatch = [(reg, actual[reg], desired) for reg, desired in PROFILE_REGISTERS.items()
+                            if actual[reg] != desired]
+                if mismatch:
+                    raise RuntimeError(f'ACIT4035 profile verification failed: {mismatch}')
+                print('  ACIT4035 PROFILE VERIFIED. Record at 200 Hz using imu_acquisition.py.')
+                continue
+            if a.action=='raw-max':
+                # RRATE_NONE prevents unsolicited output from colliding with Modbus replies.
+                # Does NOT prove that the internal sensor ADC/filtering is bypassed.
+                modify_regular(port,a.address,current,{REG_BANDWIDTH:0, REG_RRATE:13})
+            elif a.action=='set-bandwidth':
+                modify_regular(port,a.address,current,{REG_BANDWIDTH:a.bandwidth_code})
+            elif a.action=='set-delay':
+                previous=before[REG_MODDELAY]
+                print(f'  Modbus reply delay: {previous} -> {a.delay_us} us')
+                modify_regular(port,a.address,current,{REG_MODDELAY:a.delay_us})
+            elif a.action=='set-baud':
+                change_baud(port,a.address,current,a.target_baud)
+            else:
+                reg,val=(REG_ORIENT,1) if a.action=='vertical' else (
+                        (REG_ORIENT,0) if a.action=='horizontal' else (
+                        (REG_AXIS6,1) if a.action=='six-axis' else (REG_AXIS6,0)))
+                modify_regular(port,a.address,current,{reg:val})
+            print_state(port,a.address,probe(port,a.address))
+        except (serial.SerialException,OSError,TimeoutError,ValueError,RuntimeError) as exc:
+            failed=True
+            print(f'ERROR: {exc}')
+    if failed: raise SystemExit(1)
 
-            run_port(
-                port,
-                args.action,
-                args.baud,
-                args.address,
-            )
-
-        except (
-            serial.SerialException,
-            TimeoutError,
-            ValueError,
-            RuntimeError,
-        ) as exc:
-
-            print(f"{label}: ERROR: {exc}")
-            failed = True
-
-    if failed:
-        raise SystemExit(1)
-
-    print("\nConfiguration completed successfully.")
-
-
-if __name__ == "__main__":
-    main()
+if __name__=='__main__': main()
