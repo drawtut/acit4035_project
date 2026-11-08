@@ -12,3 +12,5 @@ recordings/
 .env
 .DS_Store
 Thumbs.db
+
+*.mp4

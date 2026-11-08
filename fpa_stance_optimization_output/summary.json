@@ -1,0 +1,28 @@
+{
+  "left": {
+    "side": "left",
+    "samples": 3113,
+    "rate_hz": 199.94501335259957,
+    "gyro_bias_dps": [
+      0.06103515625,
+      0.0,
+      -0.244140625
+    ],
+    "tested_configs": 96,
+    "baseline_interval_count": 11,
+    "baseline_interval_seconds": 8.789867200190201
+  },
+  "right": {
+    "side": "right",
+    "samples": 3115,
+    "rate_hz": 199.9700064123583,
+    "gyro_bias_dps": [
+      -0.06103515625,
+      0.0,
+      -0.1220703125
+    ],
+    "tested_configs": 96,
+    "baseline_interval_count": 8,
+    "baseline_interval_seconds": 9.620181550038978
+  }
+}

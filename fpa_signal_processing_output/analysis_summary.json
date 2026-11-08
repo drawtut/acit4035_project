@@ -1,0 +1,46 @@
+{
+  "status": "EXPERIMENTAL - stationary intervals NOT ground truth; no FPA calculation",
+  "sources": {
+    "left": "recordings\\fpa_trials\\20261108_142728_849881_bilateral_toe_calibration\\left_raw.csv",
+    "right": "recordings\\fpa_trials\\20261108_142728_849881_bilateral_toe_calibration\\right_raw.csv"
+  },
+  "filters": {
+    "type": "4th order zero-phase Butterworth (offline)",
+    "cutoff_hz": 15,
+    "comparison_cutoffs_hz": [
+      10,
+      15,
+      30
+    ]
+  },
+  "detector": {
+    "gyro_threshold_dps": 50,
+    "gravity_tolerance_mps2": 1.8,
+    "accel_variance_limit": 0.8,
+    "min_stationary_ms": 70
+  },
+  "feet": {
+    "left": {
+      "rows": 3113,
+      "median_sample_rate_hz": 199.95,
+      "average_rate_hz": 199.87,
+      "gyro_bias_dps": [
+        0.2441,
+        -0.1221,
+        0.4883
+      ],
+      "stationary_candidate_intervals": 10
+    },
+    "right": {
+      "rows": 3115,
+      "median_sample_rate_hz": 199.97,
+      "average_rate_hz": 200.0,
+      "gyro_bias_dps": [
+        0.0,
+        0.0,
+        -0.4883
+      ],
+      "stationary_candidate_intervals": 10
+    }
+  }
+}
