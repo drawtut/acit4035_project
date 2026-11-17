@@ -1,0 +1,133 @@
+<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>ACIT4035 | Step-by-step FPA</title>
+<style>
+:root{color-scheme:dark}body{margin:0;background:#0b1423;color:#e8f0fa;font:15px system-ui,sans-serif}main{max-width:1100px;margin:20px auto;padding:0 18px}h1{font-size:26px;margin-bottom:4px}p,.muted{color:#a4b5cb}.panel{border:1px solid #304159;background:#15243a;border-radius:13px;padding:17px;margin:14px 0}.grid{display:grid;grid-template-columns:1fr 1fr;gap:14px}h2{margin:0 0 8px}.big{font-size:38px;font-weight:700;font-variant-numeric:tabular-nums}button,input{border:1px solid #406080;border-radius:7px;padding:10px;font:inherit}button{background:#2373b4;color:white;cursor:pointer}button:disabled{opacity:.45}input{background:#0b1423;color:#fff}svg{width:100%;height:130px;background:#0c1a2d;border-radius:6px}.dim{font-size:12px;color:#9eb0c9}.alert{color:#ffbe9c}table{border-collapse:collapse;width:100%;font-variant-numeric:tabular-nums}th,td{padding:10px;border-bottom:1px solid #304159;text-align:left}th{color:#aabbce;font-size:12px;text-transform:uppercase}.angle{font-size:20px;font-weight:700}.ok{color:#8ee2b3}.pending{color:#fbc98b}.scroll{max-height:440px;overflow:auto}@media(max-width:680px){.grid{grid-template-columns:1fr}table{font-size:13px}th,td{padding:8px}}
+</style></head><body><main>
+<h1>Step-by-step Foot Progression Angle</h1><p>ACIT4035 · Raw6 IMU detection · Bilateral left/right · Research estimates, not validated clinical measurements · <b>PHASE 16 BASE + EXPLORATORY BILATERAL CRP</b></p>
+<div class="panel"><label>Session <input id="label" value="walking_trial"></label> <p class="dim"><b>Reference-line mode is automatic for every recording.</b> Align BOTH shoe axes with the taped 0° walkway reference, stand still for five seconds, then walk approximately parallel to the reference. If the physical setup is not aligned, the resulting angles are not valid reference-line FPA.</p><button id="start">Start recording</button> <button id="stop">Stop</button> <button id="analyze">Finalize Stage 4</button> <a id="download" href="/api/download_latest" download style="display:inline-block;color:white;background:#265b65;border:1px solid #406080;border-radius:7px;padding:10px;text-decoration:none">Download session ZIP</a><p id="status">Connecting…</p><p class="dim">Use anonymous participant IDs (P01, P02, ...); no real names. Stop and finalize before downloading. Work only on a trusted local network.</p><div class="dim" id="folder"></div><p class="alert" id="error"></p><p class="dim" id="timingalert">Sample-timing report will appear after sensor connection.</p><p class="dim" id="timebase">After finalization, Phase 3 computational timebase diagnostics appear here.</p></div>
+<div class="grid">
+ <section class="panel"><h2>Left foot</h2><div class="big" id="leftlatest">—°</div><p id="leftstate">No step detected yet</p><svg id="leftchart" viewBox="0 0 500 130"></svg><div class="dim" id="leftmeta"></div></section>
+ <section class="panel"><h2>Right foot</h2><div class="big" id="rightlatest">—°</div><p id="rightstate">No step detected yet</p><svg id="rightchart" viewBox="0 0 500 130"></svg><div class="dim" id="rightmeta"></div></section>
+</div>
+<section class="panel"><h2>Footfall timeline <span id="stepcount" class="dim"></span></h2><p><b>Reference-line FPA:</b> signed shoe axis at the estimated landing relative to the initial 0° taped stance. Both feet are zeroed independently and keep the same initial reference throughout the trial.</p><div class="scroll"><table><thead><tr><th>Step</th><th>Foot</th><th>Contact (s)</th><th>Reference-line FPA (°)</th><th>Detector evidence</th><th>FPA quality</th></tr></thead><tbody id="ledger"><tr><td colspan="6">Start recording to see steps.</td></tr></tbody></table></div></section>
+<section class="panel" id="reviewpanel"><h2>Review-only FPA estimates <span id="reviewcount" class="dim"></span></h2><p class="dim">These C-level contacts have plausible foot-motion and brief low-motion evidence, but no sufficiently confirmed full stance. The angles are <b>provisional</b>, not verified footfalls. B-level stance-supported contacts remain in the main timeline.</p><div class="scroll"><table><thead><tr><th>Foot</th><th>Contact (s)</th><th>Estimated FPA</th><th>Evidence</th></tr></thead><tbody id="reviewledger"><tr><td colspan="4">No review-only candidates.</td></tr></tbody></table></div></section>
+<section class="panel" id="synchronouspanel"><h2>True two-IMU measurement · simultaneous relative foot heading <span id="synccount" class="dim"></span></h2>
+<p class="dim">At each shared host-monotonic timestamp, combine <b>both IMUs' calibrated orientation streams</b> into one angle: Δψ(t) = ψLeft(t) − ψRight(t), with both headings referenced to the initial taped alignment. This is <b>not</b> a comparison of different footsteps. Host timestamps are aligned/interpolated; the hardware itself is not clock-synchronized.</p>
+<div class="grid">
+<div><div class="dim">Median absolute relative heading · during walking</div><div class="big" id="syncmedian">—°</div></div>
+<div><div class="dim">Peak absolute relative heading · during walking</div><div class="big" id="syncpeak">—°</div></div>
+</div>
+<svg id="syncchart" viewBox="0 0 800 150" style="height:150px" aria-label="Relative heading over time"></svg>
+<p class="dim" id="syncstatus">Awaiting shared-clock data from both IMUs.</p>
+<div class="scroll"><table><thead><tr><th>Double support</th><th>Start (s)</th><th>End (s)</th><th>Duration (s)</th><th>Median relative heading (°)</th></tr></thead>
+<tbody id="syncledger"><tr><td colspan="5">No simultaneous double-support windows yet.</td></tr></tbody></table></div>
+</section>
+<section class="panel" id="crppanel"><h2>Exploratory Continuous Relative Phase (CRP) · two IMUs <span class="dim" id="crpcount"></span></h2>
+<p class="dim">Left and right shoe-pitch orientations come from raw-six-axis IMU processing, aligned to identical shared host timestamps (20 ms). The existing filtered orientation is additionally band-passed 0.35–1.25 Hz; an offline zero-phase Hilbert transform estimates each pitch oscillation phase. One combined circular right-minus-left relative phase is reported. Approx. 180° suggests anti-phase pitch oscillation for this definition, but is <b>not</b> an independent ground-truth or clinical score. Requires several walking cycles; results can change with frequency-band choice. Zero-phase processing is retrospective; live previews may revise.</p>
+<div class="grid">
+ <div><div class="dim">Circular mean CRP (0–360°)</div><div class="big" id="crpmean">—°</div></div>
+ <div><div class="dim">Mean absolute deviation from 180°</div><div class="big" id="crperror">—°</div></div>
+</div>
+<svg id="crpchart" viewBox="0 0 800 150" style="height:150px" aria-label="Continuous relative phase (0 to 360 degrees) across time"></svg>
+<p class="dim" id="crpstatus">Awaiting simultaneous calibrated foot-pitch motion from both IMUs.</p></section>
+<section class="panel"><h2>Interpretation</h2><p>Positive = toe-out, negative = toe-in on both feet. The calculated angle is <b>relative to the marked straight reference line</b>. It represents actual FPA only when each participant progresses parallel to that line. Securely mount both sensors in the calibrated shoe orientation; stand still at the initial taped 0° pose for five seconds. This is a research measurement, not a clinically validated estimate. The relative-foot-heading channel uses <b>both sensor streams at the same host timestamp</b>; it is not absolute heading or proven drift cancellation.</p><p class="alert">Severe missing samples or unstable initial pose invalidate angles. The frozen sensor filters and acquisition are unchanged. Phase 13 uses multi-evidence contact rules; B and C are provisional/review-only, not confirmed footfalls.</p><p class="dim">Six raw measured accelerometer/gyroscope channels and timestamps only. No magnetometer or sensor Euler angles. Latest live preview may be revised by full-session processing after Stop → Finalize.</p></section>
+<script>
+const $=id=>document.getElementById(id);async function post(name,data={}){const r=await fetch('/api/'+name,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(data)});const v=await r.json();if(!r.ok)throw Error(v.detail||r.statusText);return v}
+$('start').onclick=async()=>{try{await post('start',{label:$('label').value});$('error').textContent=''}catch(e){$('error').textContent=e.message}};
+$('stop').onclick=async()=>{try{await post('stop');$('error').textContent=''}catch(e){$('error').textContent=e.message}};
+$('analyze').onclick=async()=>{try{await post('analyze');$('error').textContent=''}catch(e){$('error').textContent=e.message}};
+function graph(id,data){const svg=$(id);if(!data.length){svg.innerHTML='';return}const t0=data[0].time_s,span=Math.max(.001,data[data.length-1].time_s-t0);const vals=data.flatMap(x=>[x.ax_mps2,x.ay_mps2,x.az_mps2]);const lo=Math.min(...vals),hi=Math.max(...vals,lo+.1);const colors=['#61c6ff','#ffb36e','#92d5aa'];svg.innerHTML=['ax_mps2','ay_mps2','az_mps2'].map((key,i)=>`<polyline fill="none" stroke="${colors[i]}" stroke-width="1.6" points="${data.map(x=>`${(5+490*(x.time_s-t0)/span).toFixed(1)},${(125-120*(x[key]-lo)/(hi-lo)).toFixed(1)}`).join(' ')}"/>`).join('')}
+function drawEvents(data){
+  let rows=[];for(const side of ['left','right'])for(const r of data?.[side]||[])rows.push({...r,side});
+  rows.sort((a,b)=>a.time_s-b.time_s || a.side.localeCompare(b.side));
+  const nA=rows.filter(r=>r.detector_confidence==='A_CONFIRMED').length;
+  const nB=rows.filter(r=>r.detector_confidence==='B_PROVISIONAL').length;
+  const nC=rows.filter(r=>r.detector_confidence==='C_REVIEW_ONLY').length;
+  $('stepcount').textContent=`· ${nA} confirmed / ${nB} stance-supported / ${nC} review`;
+  const ledger=$('ledger');ledger.replaceChildren();
+  if(!rows.length){const tr=document.createElement('tr'),td=document.createElement('td');td.colSpan=6;td.textContent='Waiting for foot-contact evidence…';tr.append(td);ledger.append(tr)}
+  else rows.forEach((r,i)=>{
+    const tr=document.createElement('tr');
+    const cells=[String(i+1),r.side.toUpperCase(),r.time_s.toFixed(2),
+      r.fpa_deg==null?'—':Number(r.fpa_deg).toFixed(1)+'°',
+      (r.detector_confidence==='A_CONFIRMED'?'A · impact + stance':
+       r.detector_confidence==='B_PROVISIONAL'?'B · stance supported':
+       r.detector_confidence==='C_REVIEW_ONLY'?'C · review only':'Unknown'),
+      r.status||'Pending'];
+    cells.forEach((value,j)=>{const td=document.createElement('td');td.textContent=value;
+      if(j===3&&r.fpa_deg!=null)td.className=(r.detector_confidence==='A_CONFIRMED'?'angle ok':'angle pending');tr.append(td)});
+    ledger.append(tr);
+  });
+  // Separate clearly visible list of C-level review-only FPA candidates.
+  // Preserve the chronological event evidence; never count a C as confirmed.
+  const review=rows.filter(r=>r.detector_confidence==='C_REVIEW_ONLY');
+  $('reviewcount').textContent=`· ${review.length} provisional`;
+  const reviewLedger=$('reviewledger');reviewLedger.replaceChildren();
+  if(!review.length){
+    const tr=document.createElement('tr'),td=document.createElement('td');
+    td.colSpan=4;td.textContent='No review-only candidates in this session.';
+    tr.append(td);reviewLedger.append(tr);
+  }else review.forEach(r=>{
+    const tr=document.createElement('tr');
+    const values=[r.side.toUpperCase(),Number(r.time_s).toFixed(2),
+      r.fpa_deg==null?'Unavailable':Number(r.fpa_deg).toFixed(2)+'°',
+      'C · soft-stance candidate; confirm against footprint'];
+    values.forEach((value,i)=>{
+      const td=document.createElement('td');td.textContent=value;
+      if(i===2&&r.fpa_deg!=null)td.className='angle pending';
+      tr.append(td);
+    });
+    reviewLedger.append(tr);
+  });
+  for(const side of ['left','right']){
+    const list=rows.filter(r=>r.side===side);
+    const measured=list.filter(r=>r.fpa_deg!=null);
+    $(side+'latest').textContent=measured.length?Number(measured[measured.length-1].fpa_deg).toFixed(1)+'°':'—°';
+    $(side+'state').textContent=`${list.filter(x=>x.detector_confidence==='A_CONFIRMED').length} confirmed · ${list.filter(x=>x.detector_confidence==='B_PROVISIONAL').length} stance-supported · ${list.filter(x=>x.detector_confidence==='C_REVIEW_ONLY').length} review · ${measured.length} candidate angles`+' · automatic reference-line protocol';
+  }
+}
+function drawSynchronous(data){
+  const summary=data?.summary||{}, rows=data?.rows||[], windows=data?.double_support_periods||[];
+  const value=x=>Number.isFinite(Number(x))&&x!=null?Number(x).toFixed(2)+'°':'—°';
+  $('syncmedian').textContent=value(summary.median_abs_moving_relative_heading_deg);
+  $('syncpeak').textContent=value(summary.max_abs_moving_relative_heading_deg);
+  $('synccount').textContent=summary.status==='OK'?`· ${summary.samples} simultaneous samples`:'· unavailable';
+  $('syncstatus').textContent=summary.status==='OK'?`${summary.double_support_periods} strict double-support intervals during walking (min 0.12 s). Data interpolated to shared host-midpoint times and checked for raw-sample gaps. Initial/final stationary holds excluded from gait summaries.`:
+     `Not available: ${summary.reason||'waiting for two independent calibrated IMU streams'}`;
+  const ledger=$('syncledger');ledger.replaceChildren();
+  if(!windows.length){const tr=document.createElement('tr'),td=document.createElement('td');td.colSpan=5;
+      td.textContent='No sufficiently long double-support intervals after the initial calibration hold.';tr.append(td);ledger.append(tr)}
+  windows.forEach((w,i)=>{const tr=document.createElement('tr');
+    [i+1,Number(w.start_s).toFixed(2),Number(w.end_s).toFixed(2),Number(w.duration_s).toFixed(2),value(w.median_relative_heading_deg)]
+    .forEach(v=>{const td=document.createElement('td');td.textContent=v;tr.append(td)});ledger.append(tr)});
+  const svg=$('syncchart');svg.replaceChildren();
+  if(rows.length<2)return;
+  const t0=Number(rows[0].time_s),t1=Number(rows[rows.length-1].time_s),span=Math.max(.001,t1-t0);
+  const all=rows.map(r=>Number(r.relative_heading_deg));const low=Math.min(-5,...all),high=Math.max(5,...all),vertical=Math.max(1,high-low);
+  const xy=r=>`${(12+776*(Number(r.time_s)-t0)/span).toFixed(1)},${(140-128*(Number(r.relative_heading_deg)-low)/vertical).toFixed(1)}`;
+  const poly=document.createElementNS('http://www.w3.org/2000/svg','polyline');
+  poly.setAttribute('fill','none');poly.setAttribute('stroke','#61c6ff');poly.setAttribute('stroke-width','2');
+  poly.setAttribute('points',rows.map(xy).join(' '));svg.append(poly);
+  rows.filter(r=>r.double_support).forEach(r=>{const circle=document.createElementNS('http://www.w3.org/2000/svg','circle');
+    const [cx,cy]=xy(r).split(',');circle.setAttribute('cx',cx);circle.setAttribute('cy',cy);circle.setAttribute('r','2.7');
+    circle.setAttribute('fill','#8ee2b3');svg.append(circle)});
+}
+function drawCRP(data){
+  const summary=data?.summary||{},rows=data?.rows||[];
+  const val=x=>x==null||!Number.isFinite(Number(x))?'—°':Number(x).toFixed(1)+'°';
+  $('crpmean').textContent=val(summary.circular_mean_relative_phase_deg);
+  $('crperror').textContent=val(summary.mean_abs_antiphase_deviation_deg);
+  $('crpcount').textContent=summary.status==='OK_EXPLORATORY'?`· ${summary.samples} paired-time estimates`:'· unavailable';
+  $('crpstatus').textContent=summary.status==='OK_EXPLORATORY'?`Exploratory only · ${summary.usable_duration_s}s usable · circular std ${val(summary.circular_std_deg)} · no validated contact/kinematic ground truth · retrospective zero-phase analysis.`:
+    'Unavailable: '+(summary.reason||'waiting for sufficient walking data from both sensors');
+  const svg=$('crpchart');svg.replaceChildren();if(rows.length<2)return;
+  const t0=Number(rows[0].time_s),t1=Number(rows[rows.length-1].time_s),span=Math.max(.001,t1-t0);
+  const xy=r=>`${(12+776*(Number(r.time_s)-t0)/span).toFixed(1)},${(140-128*((Number(r.right_minus_left_crp_deg)+360)%360)/360).toFixed(1)}`;
+  // Break at angular wrap jumps; never connect +179 and -179 across the screen.
+  let segment=[];let last=null;
+  function flush(){if(segment.length>1){const poly=document.createElementNS('http://www.w3.org/2000/svg','polyline');poly.setAttribute('fill','none');poly.setAttribute('stroke','#fbc98b');poly.setAttribute('stroke-width','2');poly.setAttribute('points',segment.map(xy).join(' '));svg.append(poly)}segment=[]}
+  rows.forEach(r=>{const phase=(Number(r.right_minus_left_crp_deg)+360)%360;if(last!==null&&Math.abs(phase-last)>180)flush();segment.push(r);last=phase});flush();
+}
+async function update(){try{const r=await fetch('/api/status');const s=await r.json();$('status').textContent=s.recording?'● Recording + processing footfalls…':s.processing?'Finalizing Stage 4…':'Ready / stopped';$('folder').textContent=s.session||'';$('start').disabled=!!(s.recording||s.processing);$('stop').disabled=!s.recording;$('analyze').disabled=!!(s.recording||s.processing||!s.session);$('download').style.pointerEvents=(s.recording||s.processing||!s.session)?'none':'auto';$('download').style.opacity=(s.recording||s.processing||!s.session)?'.4':'1';for(const side of ['left','right']){graph(side+'chart',s.traces?.[side]||[]);const v=s.sensors?.[side]||{};$(side+'meta').textContent=`Saved: ${s.samples?.[side]||0} · Host rate: ${v.effective_hz?.toFixed(1)||'—'} Hz · Read errors: ${v.errors||0} · gaps >30ms: ${v.gaps_over_30ms||0} · max gap: ${v.max_interval_ms?.toFixed(1)||'—'}ms · IPC drops: ${v.queue_drops||0} · skipped slots: ${v.scheduler_skipped||0}${v.last_error?' · '+v.last_error:''}`}drawEvents(s.step_events);drawSynchronous(s.synchronous_relative);drawCRP(s.continuous_relative_phase);const tb=s.last_results?.timebase;if(tb){$('timebase').textContent=['left','right'].map(side=>{const x=tb[side];return side.toUpperCase()+': '+(x?.mode||'?')+' · actual raw '+(x?.source_samples||'?')+' polls · computational grid '+(x?.grid_samples||'?')+' points · source maximum gap '+(x?.source_max_gap_ms?.toFixed(1)||'?')+' ms'}).join(' | ')+' · Grid points are not additional physical samples.'}else{$('timebase').textContent='After finalization, timebase diagnostics appear here.'}$('error').textContent=s.last_error||s.live_error||'';const bad=Object.values(s.sensors||{}).filter(x=>(x.gaps_over_30ms||0)>0||(x.queue_drops||0)>0);$('timingalert').textContent=bad.length?`Sampling warning: ${bad.map(x=>x.port+': '+(x.gaps_over_30ms||0)+' gaps >30ms / '+(x.queue_drops||0)+' IPC drops').join(' | ')}. FPA may be rejected or provisional.`:'No gaps >30ms or IPC drops observed yet. Timestamp is HOST Modbus request/response midpoint, not a sensor-native clock.';
+ const bw=s.last_results?.bilateral_window;if(bw?.applied){$('timingalert').textContent+=' | BILATERAL TAIL CUT: one sensor ended early; later single-foot samples excluded from Stage 4, RAW DATA PRESERVED.'}}catch(e){$('error').textContent='Connection: '+e.message}}
+update();setInterval(update,1200);
+</script></main></body></html>

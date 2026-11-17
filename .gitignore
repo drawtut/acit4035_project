@@ -1,16 +1,55 @@
-# Python
+# Python bytecode and local environments
 __pycache__/
-*.pyc
+*.py[cod]
+*.pyo
 .venv/
 venv/
+env/
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+.coverage
+htmlcov/
+*.egg-info/
 
-# IMU recordings and generated data
-recordings/
-*.csv
-
-# Environment and system files
+# Local configs and operating system
 .env
+.env.*
+!.env.example
 .DS_Store
 Thumbs.db
+.vscode/
+.idea/
 
+# Original research recordings and videos MUST stay outside source control
+**/recordings/
+**/sessions/
+**/raw_acquisition/
+**/data/
+**/private_data/
+**/local_trials/
+**/exports/
+**/outputs/
+**/results/
+**/validation_results/
+**/reference_line_replay/
+**/offline_stage4_results/
+**/fpa_lab_outputs/
+**/fpa_bilateral_v2_results/
+**/filterstudio_settings/*
+!**/filterstudio_settings/best_exploratory_filter_profile.json
+*.csv
+*.tsv
 *.mp4
+*.mov
+*.avi
+*.zip
+*.7z
+*.tar
+*.gz
+*.log
+*.png
+*.jpg
+*.jpeg
+*.pdf
+# Never commit participant data, even if file names look harmless

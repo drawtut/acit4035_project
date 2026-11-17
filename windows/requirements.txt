@@ -1,0 +1,6 @@
+# Windows: backend, offline processing, Filter Studio, and diagnostic scripts.
+-r online_unified/requirements-online.txt
+opencv-python>=4.10,<5
+Pillow>=10,<13
+# tkinter is supplied with the Windows Python installation (not a pip package).
+# Optional: video proxy utility requires imageio-ffmpeg.

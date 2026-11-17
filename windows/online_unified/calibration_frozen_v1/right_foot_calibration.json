@@ -1,0 +1,81 @@
+{
+  "schema": "ACIT4035_INDEPENDENT_RAW6_FOOT_CALIBRATION_V1",
+  "side": "right",
+  "assumption_mount_forward_axis": "+Y",
+  "mounting_direction_physically_verified": true,
+  "separate_calibration_trial": true,
+  "usable": true,
+  "total_accepted_swings": 8,
+  "selection": "first_four_IMU_accepted_swings_not_independently_verified_as_forward",
+  "swings_used": 4,
+  "swing_ids": [
+    1,
+    2,
+    3,
+    4
+  ],
+  "pca_eigenvalue_ratio": 4.3209876370531894,
+  "sensor_forward_unit": [
+    -0.2675146047495291,
+    0.8835124693617408,
+    0.38450182408933065
+  ],
+  "sensor_up_reference": [
+    -0.10308731791239892,
+    -0.42299817895135744,
+    0.9002474912430823
+  ],
+  "sensor_mediolateral_unit": [
+    0.9580234554181496,
+    0.20119209001885416,
+    0.2042371214606053
+  ],
+  "alignment_with_mount_axis": 0.8835124693617408,
+  "warning": "Separate functional calibration passed provisional PCA criteria. Straight walking and shoe installation require operator confirmation; independent anatomical FPA accuracy is unvalidated.",
+  "sensor_lateral_unit": [
+    -0.9580234554181496,
+    -0.20119209001885416,
+    -0.2042371214606053
+  ],
+  "sensor_to_foot_rotation_matrix": [
+    [
+      -0.2675146047495291,
+      0.8835124693617408,
+      0.38450182408933065
+    ],
+    [
+      -0.9580234554181496,
+      -0.20119209001885416,
+      -0.2042371214606053
+    ],
+    [
+      -0.10308731791239892,
+      -0.42299817895135744,
+      0.9002474912430823
+    ]
+  ],
+  "rotation_matrix_determinant": 1.0000000000000002,
+  "reason": "PROVISIONAL_pca_axis_requires_physical_sign_verification",
+  "source_kind": "separate_straight_walking_trial",
+  "calibration_quality_status": "PCA_PASS_STRAIGHT_WALK_UNVERIFIED",
+  "forward_walk_confirmed_by_operator": true,
+  "physical_mount_verified_by_operator": true,
+  "hardware_installation_register_0x23": 1,
+  "sensor_axis_convention": "VERTICAL_0x23_1_TO_PRINTED_Rx_NEG90_20261115",
+  "settings_sha256": "9f8fd063ce18666aa0aa4b505adbd1a978e618e3e51ae232f5c3c874be40bc9a",
+  "detector_configuration_frozen": true,
+  "source_raw6_sha256": "810d8de9564976798ca445dd0096c340bbe89e6a65ab96dfc65bf55387a9b537",
+  "used_measured_inputs": [
+    "ax_mps2",
+    "ay_mps2",
+    "az_mps2",
+    "gx_dps",
+    "gy_dps",
+    "gz_dps",
+    "IMU timestamps"
+  ],
+  "independent_accuracy_validated": false,
+  "timebase_method": "PHASE3_UNIFORM_RAW6_V1",
+  "timebase_mode_during_calibration": "UNIFORM_INTERPOLATED_RAW6",
+  "timebase_calibration_source": "same original 35s forward-walk recording reprocessed with Phase3 computational time grid"
+}

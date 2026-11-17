@@ -1,0 +1,281 @@
+{
+  "schema": "ACIT4035_SIGNAL_PROFILES_V1",
+  "per_signal_filters": {
+    "Angular speed |gyro|": {
+      "method": "Butterworth low-pass",
+      "cutoff": 10.0,
+      "high_cut": 23.0,
+      "window": 75.0,
+      "order": 4,
+      "notch": 50.0,
+      "rms_window": 75.0,
+      "prominence": 22.0,
+      "spacing": 0.3
+    },
+    "Acceleration magnitude |a|": {
+      "method": "Butterworth low-pass",
+      "cutoff": 15.0,
+      "high_cut": 23.0,
+      "window": 75.0,
+      "order": 4,
+      "notch": 50.0,
+      "rms_window": 75.0,
+      "prominence": 1.0,
+      "spacing": 0.3
+    },
+    "gx_dps": {
+      "method": "Butterworth low-pass",
+      "cutoff": 10.0,
+      "high_cut": 23.0,
+      "window": 75.0,
+      "order": 4,
+      "notch": 50.0,
+      "rms_window": 75.0,
+      "prominence": 22.0,
+      "spacing": 0.3
+    },
+    "gy_dps": {
+      "method": "Butterworth low-pass",
+      "cutoff": 10.0,
+      "high_cut": 23.0,
+      "window": 75.0,
+      "order": 4,
+      "notch": 50.0,
+      "rms_window": 75.0,
+      "prominence": 22.0,
+      "spacing": 0.3
+    },
+    "gz_dps": {
+      "method": "Butterworth low-pass",
+      "cutoff": 10.0,
+      "high_cut": 23.0,
+      "window": 75.0,
+      "order": 4,
+      "notch": 50.0,
+      "rms_window": 75.0,
+      "prominence": 22.0,
+      "spacing": 0.3
+    },
+    "ax_mps2": {
+      "method": "Butterworth band-pass",
+      "cutoff": 11.0,
+      "high_cut": 23.0,
+      "window": 75.0,
+      "order": 4,
+      "notch": 50.0,
+      "rms_window": 75.0,
+      "prominence": 1.0,
+      "spacing": 0.3
+    },
+    "ay_mps2": {
+      "method": "Butterworth band-pass",
+      "cutoff": 11.0,
+      "high_cut": 23.0,
+      "window": 75.0,
+      "order": 4,
+      "notch": 50.0,
+      "rms_window": 75.0,
+      "prominence": 1.0,
+      "spacing": 0.3
+    },
+    "az_mps2": {
+      "method": "Butterworth band-pass",
+      "cutoff": 11.0,
+      "high_cut": 24.0,
+      "window": 75.0,
+      "order": 4,
+      "notch": 50.0,
+      "rms_window": 75.0,
+      "prominence": 1.0,
+      "spacing": 0.35
+    }
+  },
+  "impact_source": "az_mps2",
+  "fpa_raw6_lab": {
+    "gyro_hz": 10.0,
+    "accel_hz": 5.0,
+    "order": 4,
+    "bias_start_s": 1.0,
+    "bias_end_s": 4.0,
+    "correct_gyro_bias": true,
+    "filter_gyro": true,
+    "filter_accel": true
+  },
+  "fpa_raw6_orientation_lab": {
+    "forward_axis": "+X",
+    "tilt_correction_tau_s": 0.75,
+    "static_gyro_threshold_dps": 12.0,
+    "accel_gravity_tolerance_mps2": 0.9
+  },
+  "fpa_stage123_mount_axes": {
+    "left": "+Y",
+    "right": "+Y"
+  },
+  "fpa_stage4_mount_verification": {
+    "left": false,
+    "right": false
+  },
+  "shared_config": {
+    "schema": "ACIT4035_SHARED_PROCESSING_V1",
+    "impact": {
+      "axis": "az_mps2",
+      "low_hz": 11.0,
+      "high_hz": 24.0,
+      "order": 4,
+      "rms_window_ms": 75.0,
+      "prominence_mps2": 1.0,
+      "min_spacing_s": 0.35,
+      "method": "Butterworth band-pass",
+      "window_ms": 75.0,
+      "notch_hz": 50.0
+    },
+    "stationary": {
+      "detector_lowpass_hz": 15.0,
+      "order": 4,
+      "gyro_threshold_dps": 50.0,
+      "gravity_tolerance_mps2": 1.0,
+      "accel_variance_mps4": 1.0,
+      "variance_window_ms": 110.0,
+      "min_duration_ms": 160.0,
+      "bridge_gap_ms": 25.0,
+      "gyro_lowpass_hz": 10.0,
+      "accel_lowpass_hz": 15.0
+    },
+    "segmentation": {
+      "contact_to_stance_min_s": 0.02,
+      "contact_to_stance_max_s": 0.7,
+      "min_stride_s": 0.6,
+      "max_stride_s": 2.5,
+      "min_midstance_duration_ms": 87.0
+    },
+    "orientation": {
+      "gyro_lowpass_hz": 20.0,
+      "order": 4,
+      "bias_initial_window_s": 2.0,
+      "bias_quiet_threshold_dps": 8.0,
+      "bias_min_quiet_ms": 80.0
+    },
+    "notes": "TUNING CANDIDATES ONLY. No foot-contact, stationary stance, displacement, or FPA is clinically validated. Separate detector and orientation filters.",
+    "per_signal_filters": {
+      "Angular speed |gyro|": {
+        "method": "Butterworth low-pass",
+        "cutoff": 10.0,
+        "high_cut": 23.0,
+        "window": 75.0,
+        "order": 4,
+        "notch": 50.0,
+        "rms_window": 75.0,
+        "prominence": 22.0,
+        "spacing": 0.3
+      },
+      "Acceleration magnitude |a|": {
+        "method": "Butterworth low-pass",
+        "cutoff": 15.0,
+        "high_cut": 23.0,
+        "window": 75.0,
+        "order": 4,
+        "notch": 50.0,
+        "rms_window": 75.0,
+        "prominence": 1.0,
+        "spacing": 0.3
+      },
+      "gx_dps": {
+        "method": "Butterworth low-pass",
+        "cutoff": 10.0,
+        "high_cut": 23.0,
+        "window": 75.0,
+        "order": 4,
+        "notch": 50.0,
+        "rms_window": 75.0,
+        "prominence": 22.0,
+        "spacing": 0.3
+      },
+      "gy_dps": {
+        "method": "Butterworth low-pass",
+        "cutoff": 10.0,
+        "high_cut": 23.0,
+        "window": 75.0,
+        "order": 4,
+        "notch": 50.0,
+        "rms_window": 75.0,
+        "prominence": 22.0,
+        "spacing": 0.3
+      },
+      "gz_dps": {
+        "method": "Butterworth low-pass",
+        "cutoff": 10.0,
+        "high_cut": 23.0,
+        "window": 75.0,
+        "order": 4,
+        "notch": 50.0,
+        "rms_window": 75.0,
+        "prominence": 22.0,
+        "spacing": 0.3
+      },
+      "ax_mps2": {
+        "method": "Butterworth band-pass",
+        "cutoff": 11.0,
+        "high_cut": 23.0,
+        "window": 75.0,
+        "order": 4,
+        "notch": 50.0,
+        "rms_window": 75.0,
+        "prominence": 1.0,
+        "spacing": 0.3
+      },
+      "ay_mps2": {
+        "method": "Butterworth band-pass",
+        "cutoff": 11.0,
+        "high_cut": 23.0,
+        "window": 75.0,
+        "order": 4,
+        "notch": 50.0,
+        "rms_window": 75.0,
+        "prominence": 1.0,
+        "spacing": 0.3
+      },
+      "az_mps2": {
+        "method": "Butterworth band-pass",
+        "cutoff": 11.0,
+        "high_cut": 24.0,
+        "window": 75.0,
+        "order": 4,
+        "notch": 50.0,
+        "rms_window": 75.0,
+        "prominence": 1.0,
+        "spacing": 0.35
+      }
+    },
+    "swing_segmentation": {
+      "use_gyro_rms_for_swing": true,
+      "gyro_rms_threshold_dps": 40.0,
+      "gyro_rms_window_ms": 75.0,
+      "gyro_rms_min_swing_s": 0.45
+    },
+    "combined_detection": {
+      "startup_recovery_enabled": false
+    }
+  },
+  "channel": "az_mps2",
+  "filter": "Butterworth band-pass",
+  "cutoff_hz": 11.0,
+  "high_cut_hz": 24.0,
+  "window_ms": 75.0,
+  "butterworth_order": 4,
+  "notch_hz": 50.0,
+  "gyro_bias_correction": true,
+  "video_offset_s": 0.0,
+  "use_gyro_rms_for_swing": true,
+  "gyro_rms_threshold_dps": 40.0,
+  "gyro_rms_min_swing_s": 0.45,
+  "stance_gyro_threshold_dps": 50.0,
+  "stance_accel_tolerance_mps2": 1.0,
+  "stance_accel_variance_limit": 1.0,
+  "min_stance_ms": 160.0,
+  "impact_rms_enabled": true,
+  "impact_peak_markers_enabled": true,
+  "impact_rms_window_ms": 75.0,
+  "impact_min_prominence_mps2": 1.0,
+  "impact_min_peak_spacing_s": 0.35,
+  "note": "Experimental parameters. Impact events are unvalidated candidates, not heel-strike ground truth."
+}

@@ -1,0 +1,47 @@
+{
+  "fpa_continuous_relative_phase.py": {
+    "same_bytes": true,
+    "windows_sha256": "f3ba2abf9a43fea5a2f2628418375fc0addc4531fd4ac89ec17f36389e5563d0",
+    "raspberry_pi_sha256": "f3ba2abf9a43fea5a2f2628418375fc0addc4531fd4ac89ec17f36389e5563d0"
+  },
+  "fpa_unified_pipeline.py": {
+    "same_bytes": true,
+    "windows_sha256": "4bc3eeac47cced377f93ac6035a48b87c9a8fa5b5ef658a35cfb5e237702623b",
+    "raspberry_pi_sha256": "4bc3eeac47cced377f93ac6035a48b87c9a8fa5b5ef658a35cfb5e237702623b"
+  },
+  "fpa_raw6_orientation.py": {
+    "same_bytes": true,
+    "windows_sha256": "ea6086dccf86a608d5b8b3ae103867993f373f5f2a759587f7fbaf4e9488bca4",
+    "raspberry_pi_sha256": "ea6086dccf86a608d5b8b3ae103867993f373f5f2a759587f7fbaf4e9488bca4"
+  },
+  "fpa_phase13_detector.py": {
+    "same_bytes": true,
+    "windows_sha256": "d800db88f4a54330baeb90709e1d4dbf07fd7801b7f579ffe25a19d0c65b9517",
+    "raspberry_pi_sha256": "d800db88f4a54330baeb90709e1d4dbf07fd7801b7f579ffe25a19d0c65b9517"
+  },
+  "fpa_reference_line.py": {
+    "same_bytes": true,
+    "windows_sha256": "7d9f6f7180c13f520a41d8ace3770b4906421079ac04ba53355588d5ea240f2f",
+    "raspberry_pi_sha256": "7d9f6f7180c13f520a41d8ace3770b4906421079ac04ba53355588d5ea240f2f"
+  },
+  "fpa_synchronous.py": {
+    "same_bytes": true,
+    "windows_sha256": "ae8ebf7b4bc0798f5d9b197b8f8106161e327a95ba9b8f77e7cb7696dbe14b7e",
+    "raspberry_pi_sha256": "ae8ebf7b4bc0798f5d9b197b8f8106161e327a95ba9b8f77e7cb7696dbe14b7e"
+  },
+  "fpa_frozen_profile.py": {
+    "same_bytes": true,
+    "windows_sha256": "30bfcd331709b46a3173074d12cd2f7d32f3521efb4ac562e5d0992b92fd90f3",
+    "raspberry_pi_sha256": "30bfcd331709b46a3173074d12cd2f7d32f3521efb4ac562e5d0992b92fd90f3"
+  },
+  "online_unified/fpa_online.py": {
+    "same_bytes": true,
+    "windows_sha256": "5120461a0cb0236f781040d579cfdfcfaccf770ce2ad9590a385d10daae6bbb3",
+    "raspberry_pi_sha256": "5120461a0cb0236f781040d579cfdfcfaccf770ce2ad9590a385d10daae6bbb3"
+  },
+  "online_unified/dashboard.html": {
+    "same_bytes": true,
+    "windows_sha256": "74b4c290c27a617619ca1fc9f95c83e6f74731882a6f1781d3ef9c4296047772",
+    "raspberry_pi_sha256": "74b4c290c27a617619ca1fc9f95c83e6f74731882a6f1781d3ef9c4296047772"
+  }
+}
